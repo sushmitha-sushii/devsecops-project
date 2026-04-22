@@ -1,0 +1,13 @@
+- name: Deploy Website
+  hosts: all
+  become: yes
+  tasks:
+    - name: Copy website files
+      copy:
+        src: ./app/
+        dest: /var/www/html/
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
