@@ -16,6 +16,11 @@ variable "instance_type" {
   default = "t2.micro"
 }
 
+# 🔥 NEW VARIABLE FOR SWITCHING
+variable "active_env" {
+  default = "blue"
+}
+
 # ---------------- DATA ----------------
 
 data "aws_vpc" "default" {
@@ -88,11 +93,17 @@ resource "aws_lb" "alb" {
 }
 
 # ---------------- TARGET GROUPS ----------------
+
 resource "aws_lb_target_group" "blue" {
   name     = "blue-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
+
+  health_check {
+    path = "/"
+    port = "80"
+  }
 }
 
 resource "aws_lb_target_group" "green" {
@@ -100,6 +111,11 @@ resource "aws_lb_target_group" "green" {
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
+
+  health_check {
+    path = "/"
+    port = "80"
+  }
 }
 
 # ---------------- ATTACH INSTANCES ----------------
@@ -116,7 +132,7 @@ resource "aws_lb_target_group_attachment" "green_attach" {
   port             = 80
 }
 
-# ---------------- LISTENER ----------------
+# ---------------- LISTENER (AUTO SWITCH) ----------------
 
 resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.alb.arn
@@ -124,8 +140,10 @@ resource "aws_lb_listener" "listener" {
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
+    type = "forward"
+
+    # 🔥 AUTO SWITCH LOGIC
+    target_group_arn = var.active_env == "blue" ? aws_lb_target_group.blue.arn : aws_lb_target_group.green.arn
   }
 }
 
@@ -143,14 +161,6 @@ output "green_public_ip" {
   value = aws_instance.green.public_ip
 }
 
-output "blue_target_group_arn" {
-  value = aws_lb_target_group.blue.arn
-}
-
-output "green_target_group_arn" {
-  value = aws_lb_target_group.green.arn
-}
-
-output "listener_arn" {
-  value = aws_lb_listener.listener.arn
+output "active_environment" {
+  value = var.active_env
 }
